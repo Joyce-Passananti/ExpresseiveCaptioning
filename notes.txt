@@ -1,0 +1,10 @@
+ffmpeg
+- new video
+- copy old video with audio
+- replace each frame with clear background
+
+stream 0:0 video
+stream 0:1 audio channel
+
+jpegs to movie
+make one clear frame 

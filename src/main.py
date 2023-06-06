@@ -1,4 +1,5 @@
 import os
+import cv2
 import asyncio
 from typing import Tuple, List
 
@@ -33,7 +34,7 @@ class DeepSub:
     def __init__(self, video_path: os.PathLike) -> None:
 
         try:
-            self.video = mp.VideoFileClip(video_path, audio=CONFIG["AUDIO"])
+            self.video = mp.VideoFileClip(video_path, audio=CONFIG["AUDIO"]).resize(0.2)
             self.video_path = video_path
         except OSError:
             print("[bold red]Video not found.[/bold red] Exiting...")
@@ -87,17 +88,36 @@ class DeepSub:
 
             start_time = round(start_time, 3)
 
-            subtitles.append((start_time, word))
+            subtitles.append((start_time, word, start_time))
 
         return subtitles
 
-    def _text_generator(self, text: str) -> mp.TextClip:
+    # def getFrame(sec):
+    #         vidcap.set(cv2.CAP_PROP_POS_MSEC,sec*1000)
+    #         hasFrames,image = vidcap.read()    # save frame as PNG file
+    #         return hasFrames
+
+    def _text_generator(self, text: str, time: int) -> mp.TextClip:
         """
         Generates a text clip with the given text.
 
         :param text: The text to be displayed.
         :return: A text clip.
         """
+        #get frame at time of text to compute color
+        # sec = 0
+        # frameRate = 0.25
+
+        vid = cv2.VideoCapture('assets\cooking_video.mp4')
+        fps = vid.get(cv2.CAP_PROP_FPS)
+        sec = time/fps
+
+        vid.set(cv2.CAP_PROP_POS_MSEC,sec*1000)
+        hasFrames,image = vid.read()
+        im = Image.open(image).convert('L')
+        stat = ImageStat.Stat(image)
+        brightness = stat.mean[0]
+
 
         # Creates the textclip object
         my_text = mp.TextClip(text, font="Amiri-regular", color="white", fontsize=15)
@@ -120,6 +140,7 @@ class DeepSub:
         Subtitles have to be in the form of a list of tuples.
         e.g.
 
+        (added timestamp to end of subtitles tuple)
         >>> subtitles = [
                 (0.0, "Hello"),
                 (1.0, "World"),
@@ -131,11 +152,11 @@ class DeepSub:
         w, h = moviesize = self.video.size
 
         display_str = ""
-        for t, text in subtitles:
+        for t, text, time in subtitles:
             display_str = (
                 display_str + (text + " ") if len(display_str.split(" ")) < 10 else text
             )
-            txt_col = self._text_generator(display_str)
+            txt_col = self._text_generator(display_str, time)
 
             # Endtime is the value of the next subtitle to come
             index_of_t = subtitles.index((t, text))
@@ -222,7 +243,7 @@ class DeepSub:
             exit()
 
 if __name__ == "__main__":
-    sm = DeepSub("t.mp4")
+    sm = DeepSub("assets\cooking_video.mp4")
     loop = asyncio.get_event_loop()
     s = loop.run_until_complete(sm.get_subtitles())
     sm.render_subtitles(s)
